@@ -119,6 +119,14 @@ function M.get_scope_start(bufnr, cursor_line, cursor_col, range, shiftwidth)
   return cursor_line, scope_indent_level
 end
 
+--- Get the string length after expanding tabs to spaces
+--- @param s string
+--- @param shiftwidth integer
+--- @return integer length
+local function get_expanded_length(s, shiftwidth)
+  return s:find('\t') ~= nil and s:gsub('\t', (' '):rep(shiftwidth)):len() or s:len()
+end
+
 --- @param bufnr integer
 --- @param line_number integer
 --- @param cursor_col integer
@@ -130,16 +138,14 @@ function M.get_line_indent_level(bufnr, line_number, cursor_col, shiftwidth)
 
   local whitespace_chars = line:match('^%s*')
   --- @cast whitespace_chars string
-  local whitespace_char_count = whitespace_chars:find('\t') ~= nil
-      and whitespace_chars:gsub('\t', (' '):rep(shiftwidth)):len()
-    or whitespace_chars:len()
+  local whitespace_char_count = get_expanded_length(whitespace_chars, shiftwidth)
 
   local whitespace_indent_level = math.floor(whitespace_char_count / shiftwidth)
   local is_all_whitespace = #whitespace_chars == #line
 
-  -- if indenting at cursor, use whichever is less between whitespace or cursor indent
+  -- if indenting at cursor, use whichever is less between whitespace indent and cursor indent
   if config.scope.indent_at_cursor then
-    local cursor_indent_level = math.floor(cursor_col / shiftwidth) + 1
+    local cursor_indent_level = math.floor(get_expanded_length(line:sub(1, cursor_col), shiftwidth) / shiftwidth) + 1
     return math.min(whitespace_indent_level, cursor_indent_level), is_all_whitespace
   else
     return whitespace_indent_level, is_all_whitespace
