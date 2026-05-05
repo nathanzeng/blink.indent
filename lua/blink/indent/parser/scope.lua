@@ -3,6 +3,7 @@
 --- @field start_line integer
 --- @field end_line integer
 
+local config = require('blink.indent.config')
 local utils = require('blink.indent.utils')
 
 local M = {}
@@ -30,7 +31,6 @@ function M.get_scope_partial(bufnr, winnr, indent_levels, range)
     scope_end_line = scope_end_line + 1
   end
 
-  -- vim.print({ indent_level = scope_indent_level, start_line = scope_start_line, end_line = scope_end_line })
   return { indent_level = scope_indent_level, start_line = scope_start_line, end_line = scope_end_line }
 end
 
@@ -81,8 +81,8 @@ end
 --- See https://github.com/saghen/blink.indent/issues/36#issuecomment-3715378685
 --- @param winnr integer
 --- @param range blink.indent.ParseRange
---- @return integer
---- @return integer
+--- @return integer cursor_line
+--- @return integer cursor_col
 function M.get_cursor_line_in_range(winnr, range)
   local cursor = vim.api.nvim_win_get_cursor(winnr)
   local cursor_line = cursor[1]
@@ -121,10 +121,11 @@ end
 
 --- @param bufnr integer
 --- @param line_number integer
+--- @param cursor_col integer
 --- @param shiftwidth integer
 --- @return integer indent_level
 --- @return boolean is_all_whitespace
-function M.get_line_indent_level(bufnr, line_number, col_number, shiftwidth)
+function M.get_line_indent_level(bufnr, line_number, cursor_col, shiftwidth)
   local line = utils.get_line(bufnr, line_number)
 
   local whitespace_chars = line:match('^%s*')
@@ -134,8 +135,15 @@ function M.get_line_indent_level(bufnr, line_number, col_number, shiftwidth)
     or whitespace_chars:len()
 
   local whitespace_indent_level = math.floor(whitespace_char_count / shiftwidth)
-  local cursor_indent_level = math.floor(col_number / shiftwidth) + 1
-  return math.min(whitespace_indent_level, cursor_indent_level), #whitespace_chars == #line
+  local is_all_whitespace = #whitespace_chars == #line
+
+  -- if indenting at cursor, use whichever is less between whitespace or cursor indent
+  if config.scope.indent_at_cursor then
+    local cursor_indent_level = math.floor(cursor_col / shiftwidth) + 1
+    return math.min(whitespace_indent_level, cursor_indent_level), is_all_whitespace
+  else
+    return whitespace_indent_level, is_all_whitespace
+  end
 end
 
 return M
